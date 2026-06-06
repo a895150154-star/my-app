@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DogPay · AI 系统架构</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f6f2;
+  --surface:#ffffff;
+  --surface2:#f0ede6;
+  --border:#e2ddd6;
+  --border2:#d4cfc6;
+  --text:#1a1816;
+  --text2:#5c574f;
+  --text3:#a09a90;
+
+  --blue:#2563eb;--blue-bg:#eff6ff;--blue-bd:#bdd4f7;
+  --teal:#00897b;--teal-bg:#e8f5f3;--teal-bd:#9fd9d2;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-bd:#f5d190;
+  --coral:#e05a44;--coral-bg:#fff4f2;--coral-bd:#f5bdb3;
+  --purple:#6c5ce7;--purple-bg:#f0eeff;--purple-bd:#c9c0f5;
+  --gray:#4b5563;--gray-bg:#f3f4f6;--gray-bd:#d1d5db;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-bd:#a7f3c4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400;
+  line-height:1.6;min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 60% 30% at 20% 0%,rgba(108,92,231,.05) 0%,transparent 70%),
+    radial-gradient(ellipse 40% 25% at 80% 100%,rgba(0,137,123,.03) 0%,transparent 70%);
+}
+.page{max-width:1280px;margin:0 auto;padding:48px 32px 80px}
+
+/* HEADER */
+.header{margin-bottom:40px}
+.eyebrow{font-family:'DM Mono',monospace;font-size:14px;color:var(--purple);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;font-weight:500}
+h1{font-family:'Syne','Noto Sans SC',sans-serif;font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--text);margin-bottom:12px;line-height:1.15}
+h1 em{font-style:normal;color:var(--purple)}
+.sub{font-size:17px;color:var(--text2);max-width:720px;line-height:1.75;margin-bottom:20px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-family:'DM Mono',monospace;font-size:13px;padding:5px 14px;border-radius:6px;border:1px solid var(--border2);color:var(--text2);background:var(--surface);font-weight:500}
+
+/* LEGEND */
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:36px}
+.leg{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--text2);padding:5px 14px;border-radius:24px;border:1px solid var(--border);background:var(--surface);font-weight:400}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* ARROW CONNECTOR */
+.connector{display:flex;align-items:center;justify-content:center;height:40px;position:relative}
+.conn-line{width:2px;height:40px;background:linear-gradient(to top,var(--border2),var(--border))}
+.conn-arrow{position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:8px solid var(--border2)}
+.conn-label{position:absolute;right:calc(50% + 16px);top:50%;transform:translateY(-50%);font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);white-space:nowrap;font-weight:500}
+
+/* LAYER */
+.layer{border-radius:16px;border:1px solid var(--border);background:var(--surface);overflow:hidden;margin-bottom:0}
+.layer-header{padding:16px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:14px}
+.layer-num{font-family:'DM Mono',monospace;font-size:14px;color:var(--text3);flex-shrink:0;font-weight:500}
+.layer-name{font-size:18px;font-weight:600;color:var(--text)}
+.layer-desc{font-size:14px;color:var(--text3);margin-left:auto;font-family:'DM Mono',monospace}
+.layer-body{padding:18px 20px}
+
+/* NODE */
+.node{border-radius:10px;border:1px solid;padding:14px 16px;cursor:pointer;transition:all .15s;position:relative}
+.node:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.node-title{font-size:16px;font-weight:600;margin-bottom:4px;letter-spacing:0.01em}
+.node-sub{font-size:14px;line-height:1.6}
+.node-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.ntag{font-size:12px;padding:2px 8px;border-radius:4px;font-family:'DM Mono',monospace;font-weight:500}
+
+/* node color variants */
+.n-blue{background:var(--blue-bg);border-color:var(--blue-bd)}.n-blue .node-title{color:var(--blue)}.n-blue .node-sub{color:#4b7fd4}.n-blue:hover{border-color:var(--blue)}
+.n-purple{background:var(--purple-bg);border-color:var(--purple-bd)}.n-purple .node-title{color:var(--purple)}.n-purple .node-sub{color:#7c70d4}.n-purple:hover{border-color:var(--purple)}
+.n-teal{background:var(--teal-bg);border-color:var(--teal-bd)}.n-teal .node-title{color:var(--teal)}.n-teal .node-sub{color:#4aab9f}.n-teal:hover{border-color:var(--teal)}
+.n-amber{background:var(--amber-bg);border-color:var(--amber-bd)}.n-amber .node-title{color:var(--amber)}.n-amber .node-sub{color:#b8850a}.n-amber:hover{border-color:var(--amber)}
+.n-gray{background:var(--gray-bg);border-color:var(--gray-bd)}.n-gray .node-title{color:var(--gray)}.n-gray .node-sub{color:#6b7280}.n-gray:hover{border-color:var(--gray)}
+.n-coral{background:var(--coral-bg);border-color:var(--coral-bd)}.n-coral .node-title{color:var(--coral)}.n-coral .node-sub{color:#c44a3a}.n-coral:hover{border-color:var(--coral)}
+.n-green{background:var(--green-bg);border-color:var(--green-bd)}.n-green .node-title{color:var(--green)}.n-green .node-sub{color:#4caf77}.n-green:hover{border-color:var(--green)}
+
+/* tag colors */
+.t-blue{background:#dbeafe;color:var(--blue)}
+.t-purple{background:#ede9ff;color:var(--purple)}
+.t-teal{background:#d4f0ed;color:var(--teal)}
+.t-amber{background:#fef3c7;color:var(--amber)}
+.t-gray{background:#e5e7eb;color:var(--gray)}
+.t-coral{background:#fee2e2;color:var(--coral)}
+.t-green{background:#dcfce7;color:var(--green)}
+
+/* GRIDS */
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.g6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* sub-sections */
+.sub-section{border:1px dashed var(--border2);border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.6)}
+.sub-section-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.platform-grid{display:grid;grid-template-columns:1fr auto;gap:12px}
+
+/* fallback strip */
+.fallback-strip{border:1px solid #fecaca;background:#fff5f5;border-radius:8px;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+.fallback-strip-label{font-family:'DM Mono',monospace;font-size:13px;color:#dc2626;font-weight:500;flex-shrink:0}
+.fallback-item{font-size:14px;color:#b91c1c;display:flex;gap:6px;align-items:center}
+.fallback-item::before{content:"\21AA";flex-shrink:0;opacity:.7}
+
+/* model grid */
+.model-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.model-group{border:1px dashed var(--border2);border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.5)}
+.model-group-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+
+/* data grid */
+.data-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.data-group{border:1px dashed var(--border2);border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.5)}
+.data-group-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+
+/* detail overlay */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.overlay.open{display:flex}
+.panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:32px;max-width:520px;width:calc(100% - 48px);max-height:80vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.12)}
+.panel-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center}
+.panel-close:hover{background:var(--surface2);color:var(--text)}
+.panel-title{font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px}
+.panel-type{font-size:13px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:16px}
+.panel-body{font-size:16px;color:var(--text2);line-height:1.8}
+.panel-section{margin-top:16px}
+.panel-section-title{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:8px}
+.panel-list{list-style:none;display:flex;flex-direction:column;gap:6px}
+.panel-list li{font-size:15px;color:var(--text2);display:flex;gap:8px;line-height:1.6}
+.panel-list li::before{content:"\00B7";color:var(--text3);flex-shrink:0}
+.panel-tags{display:flex;gap:6px;flex-wrap:wrap}
+.panel-tag{font-size:13px;padding:3px 10px;border-radius:5px;background:var(--gray-bg);color:var(--gray);font-family:'DM Mono',monospace}
+
+/* entrance */
+.layer{opacity:0;transform:translateY(8px);animation:up .4s ease forwards}
+@keyframes up{to{opacity:1;transform:none}}
+.layer:nth-child(1){animation-delay:.04s}
+.layer:nth-child(3){animation-delay:.1s}
+.layer:nth-child(5){animation-delay:.16s}
+.layer:nth-child(7){animation-delay:.22s}
+.layer:nth-child(9){animation-delay:.28s}
+.layer:nth-child(11){animation-delay:.34s}
+
+@media(max-width:900px){
+  .g6,.g5,.g4,.g3{grid-template-columns:1fr 1fr}
+  .platform-grid,.model-grid,.data-grid,.bg-grid{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  .g6,.g5,.g4,.g3,.g2{grid-template-columns:1fr}
+}
+
+/* TAB NAV */
+.tab-nav{display:flex;gap:4px;margin-bottom:36px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab-btn{font-family:'Noto Sans SC',sans-serif;font-size:15px;padding:12px 24px;border:none;background:transparent;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;border-radius:8px 8px 0 0;white-space:nowrap;font-weight:500}
+.tab-btn:hover{color:var(--text2);background:var(--surface2)}
+.tab-btn.active{color:var(--purple);border-bottom-color:var(--purple);background:var(--surface);font-weight:600}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* CASE TAB */
+.case-grid{display:flex;flex-direction:column;gap:28px;margin-bottom:36px}
+.case-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.case-header{display:flex;align-items:flex-start;gap:20px;padding:24px 24px 20px;border-bottom:1px solid var(--border)}
+.case-num{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--purple);opacity:.25;flex-shrink:0;line-height:1}
+.case-title{font-size:18px;font-weight:600;color:var(--text);margin-bottom:6px}
+.case-sub{font-size:14px;color:var(--text3);font-family:'DM Mono',monospace}
+.case-block{padding:18px 24px;border-bottom:1px solid var(--border)}
+.case-block:last-of-type{border-bottom:none}
+.case-block-label{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-weight:500}
+.case-text{font-size:15px;color:var(--text2);line-height:1.8}
+.bubble{background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:12px 12px 12px 3px;padding:14px 18px;font-size:16px;color:var(--text);line-height:1.7;display:inline-block;max-width:90%}
+
+/* flow steps */
+.flow-steps{display:flex;flex-direction:column;gap:0}
+.flow-step{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:16px}
+.flow-step-last{padding-bottom:0}
+.flow-dot{width:10px;height:10px;border-radius:50%;background:var(--purple);flex-shrink:0;margin-top:6px;position:relative;z-index:1}
+.flow-dot::after{content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% + 6px);background:var(--purple-bd)}
+.flow-step-last .flow-dot::after{display:none}
+.flow-dot-end{background:var(--teal)}
+.flow-content{font-size:15px;color:var(--text2);line-height:1.7}
+.flow-content strong{color:var(--text);font-weight:600}
+
+/* case tags */
+.case-tags-row{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;background:var(--surface2);border-top:1px solid var(--border)}
+.ctag{font-size:13px;padding:4px 12px;border-radius:6px;font-family:'DM Mono',monospace;font-weight:500}
+.ctag-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.ctag-teal{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-bd)}
+.ctag-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)}
+.ctag-coral{background:var(--coral-bg);color:var(--coral);border:1px solid var(--coral-bd)}
+.ctag-purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd)}
+
+/* value row */
+.case-value{display:flex;flex-direction:column;gap:8px;padding:14px 24px 20px}
+.value-item{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text2);line-height:1.65}
+.value-who{font-family:'DM Mono',monospace;font-size:12px;padding:3px 10px;border-radius:5px;background:var(--gray-bg);color:var(--gray);font-weight:500;flex-shrink:0;margin-top:3px}
+
+.tag-page-intro{font-size:16px;color:var(--text2);line-height:1.8;max-width:720px;margin-bottom:24px}
+
+/* PROJECT BACKGROUND */
+.bg-section{margin-bottom:40px;animation:up .4s ease both;animation-delay:.06s;opacity:0;transform:translateY(8px)}
+.bg-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:20px}
+.bg-narrative{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 32px}
+.bg-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--purple);letter-spacing:.18em;text-transform:uppercase;font-weight:500;margin-bottom:14px}
+.bg-headline{font-size:22px;font-weight:600;color:var(--text);margin-bottom:14px;line-height:1.45}
+.bg-headline em{font-style:normal;color:var(--purple)}
+.bg-text{font-size:15px;color:var(--text2);line-height:1.85}
+.bg-divider{margin:20px 0 0;padding-top:20px;border-top:1px dashed var(--border2)}
+.bg-philosophy-label{font-family:'DM Mono',monospace;font-size:12px;color:var(--teal);letter-spacing:.14em;text-transform:uppercase;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.bg-philosophy-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal)}
+
+.bg-stats{display:flex;flex-direction:column;gap:12px}
+.bg-stats-header{font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);letter-spacing:.18em;text-transform:uppercase;font-weight:500;margin-bottom:2px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 22px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--purple)}
+.stat-card-from{font-size:13px;color:var(--text3);font-weight:500;margin-bottom:6px;letter-spacing:.04em}
+.stat-card-flow{font-size:16px;color:var(--text);font-weight:600;line-height:1.5;font-family:'Noto Sans SC',sans-serif;font-variant-numeric:tabular-nums}
+.stat-card-arrow{color:var(--purple);font-weight:500;margin:0 6px}
+.stat-card-multi{position:absolute;right:22px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--purple);opacity:.5;letter-spacing:-.02em}
+.bg-role{background:#f0ede6;border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+.bg-role-label{font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:500;font-family:'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.bg-role-flow{font-size:14px;color:var(--text);font-weight:500;line-height:1.7}
+.bg-role-flow span{color:var(--purple);margin:0 4px;font-weight:600}
+
+/* opp grid (AI 应用机会) */
+.opp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.opp-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.opp-rank{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:6px}
+.opp-rank-p0{background:#fee2e2;color:#dc2626}
+.opp-rank-p1{background:#fef3c7;color:var(--amber)}
+.opp-rank-p2{background:#e5e7eb;color:var(--gray)}
+.opp-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.4}
+.opp-desc{font-size:12px;color:var(--text3);line-height:1.5}
+@media(max-width:900px){.opp-grid{grid-template-columns:1fr 1fr}}
+
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<div class="header" style="animation:up .35s ease both">
+  <div class="eyebrow">DogPay AI Architecture · v1.0 · 推演版</div>
+  <h1>DogPay AI<em> · </em>跨境加密支付智能体架构</h1>
+  <div class="sub">以 Agent Loop 为内核，把 DogPay 跨境支付平台的「客服 + KYC + 风控 + 开发者支持」全链路 AI 化——让一支团队覆盖 140+ 国家、双语种、链上+链下双轨业务。</div>
+  <div class="chips">
+    <span class="chip">Agent Loop</span>
+    <span class="chip">Multi-LLM Gateway</span>
+    <span class="chip">RAG 多语言</span>
+    <span class="chip">Tool Calling</span>
+    <span class="chip">链上风险图谱</span>
+    <span class="chip">PCI-DSS 合规</span>
+    <span class="chip">SSE Streaming</span>
+  </div>
+</div>
+
+<!-- PROJECT BACKGROUND -->
+<div class="bg-section">
+  <div class="bg-grid">
+    <div class="bg-narrative">
+      <div class="bg-label">Business Context · 业务背景</div>
+      <div class="bg-headline">跨境支付的「不可能三角」：<em>合规 × 多语种 × crypto 复杂度</em></div>
+      <p class="bg-text">DogPay 是连接加密与现实经济的跨境支付平台，覆盖 140+ 国家与地区，业务覆盖 DogPay Card（虚拟+实体）、Personal Bank（多币种账户）、Personal Acquiring（个人收 U）以及面向 B 端的 CaaS / Pay-as-a-Service。核心命题是解决「资产上链容易、下链难」。</p>
+      <div class="bg-divider">
+        <div class="bg-philosophy-label">AI 价值主张</div>
+        <p class="bg-text">跨境 + crypto 是天然的客服爆量战场：140 国 × 多语种 × 链上链下双轨 × 7×24 时差。AI 的价值不是替代客服，而是把「客服 + KYC 审核 + 风控运营 + 开发者支持」这四类高频但低创造性的工作 AI 化，让人留下来做合规判断、争议仲裁、产品迭代这些只有人能做的事。</p>
+      </div>
+    </div>
+
+    <div class="bg-stats">
+      <div class="bg-stats-header">Business Scale · 业务规模</div>
+      <div class="stat-card">
+        <div class="stat-card-from">服务覆盖</div>
+        <div class="stat-card-flow">140+ 国家与地区</div>
+        <div class="stat-card-multi">140+</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-from">合规等级</div>
+        <div class="stat-card-flow">PCI-DSS Level 1<span class="stat-card-arrow">·</span>atsec 审计</div>
+        <div class="stat-card-multi">L1</div>
+      </div>
+      <div class="bg-role">
+        <div class="bg-role-label">Target Users · 核心用户</div>
+        <div class="bg-role-flow">AI/SaaS 订阅用户<span>·</span>跨境电商<span>·</span>Web3 DAO<span>·</span>数字游民</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 应用机会预估 -->
+  <div class="opp-grid">
+    <div class="opp-card">
+      <span class="opp-rank opp-rank-p0">P0 · 必做</span>
+      <div class="opp-title">多语言 AI 客服</div>
+      <div class="opp-desc">140 国 × 多语 × 24h，crypto+法币双轨答疑</div>
+    </div>
+    <div class="opp-card">
+      <span class="opp-rank opp-rank-p0">P0 · 必做</span>
+      <div class="opp-title">KYC / KYB 智能审核</div>
+      <div class="opp-desc">文档识别 + 活体 + 链上地址风险，一次过</div>
+    </div>
+    <div class="opp-card">
+      <span class="opp-rank opp-rank-p0">P0 · 必做</span>
+      <div class="opp-title">风控 / AML 监控</div>
+      <div class="opp-desc">链上+卡片双轨实时反欺诈，OFAC 名单核查</div>
+    </div>
+    <div class="opp-card">
+      <span class="opp-rank opp-rank-p1">P1 · 增长杠杆</div>
+      <div class="opp-title">开发者 API Copilot</div>
+      <div class="opp-desc">CaaS / Pay-as-a-Service 集成助手，降低接入门槛</div>
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:var(--purple)"></div>LLM / 推理</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--teal)"></div>工具 / API</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--amber)"></div>编排 / 路由</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--blue)"></div>数据底座</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--gray)"></div>基础设施</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--coral)"></div>合规红线</div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('arch',this)">系统架构</button>
+  <button class="tab-btn" onclick="switchTab('tools',this)">Agent 工具集</button>
+  <button class="tab-btn" onclick="switchTab('cases',this)">典型场景</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TAB 1: 系统架构 -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="tab-arch" class="tab-panel active">
+
+<!-- L1 用户层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L1</span>
+    <span class="layer-name">用户层</span>
+    <span class="layer-desc">C 端 + B 端 + 开发者可感知的功能</span>
+  </div>
+  <div class="layer-body">
+    <div class="g5">
+      <div class="node n-gray" onclick="show('l1-support')">
+        <div class="node-title">多语言客服</div>
+        <div class="node-sub">订阅/卡/转账答疑</div>
+        <div class="node-tags"><span class="ntag t-gray">高频</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-kyc')">
+        <div class="node-title">KYC 智能引导</div>
+        <div class="node-sub">一句话完成验证</div>
+        <div class="node-tags"><span class="ntag t-gray">合规</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-dispute')">
+        <div class="node-title">风控自助申诉</div>
+        <div class="node-sub">卡冻结/拒付申诉</div>
+        <div class="node-tags"><span class="ntag t-gray">高敏</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-copilot')">
+        <div class="node-title">API Copilot</div>
+        <div class="node-sub">开发者集成助手</div>
+        <div class="node-tags"><span class="ntag t-gray">B2B</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-finance')">
+        <div class="node-title">多币种记账</div>
+        <div class="node-sub">跨币种财务整理</div>
+        <div class="node-tags"><span class="ntag t-gray">中频</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L2 支撑 L1</div></div>
+
+<!-- L2 应用层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L2</span>
+    <span class="layer-name">应用层</span>
+    <span class="layer-desc">Agent 核心业务能力</span>
+  </div>
+  <div class="layer-body">
+    <div class="g5">
+      <div class="node n-amber" onclick="show('l2-intent')">
+        <div class="node-title">多语言意图识别</div>
+        <div class="node-sub">140 国语言路由</div>
+        <div class="node-tags"><span class="ntag t-amber">15+ 语种</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-fusion')">
+        <div class="node-title">链上链下融合</div>
+        <div class="node-sub">crypto + 法币双轨</div>
+        <div class="node-tags"><span class="ntag t-amber">双数据源</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-risk')">
+        <div class="node-title">风险评分引擎</div>
+        <div class="node-sub">实时多维评分</div>
+        <div class="node-tags"><span class="ntag t-amber">0~100 分</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-compliance')">
+        <div class="node-title">合规守卫</div>
+        <div class="node-sub">多司法辖区适配</div>
+        <div class="node-tags"><span class="ntag t-coral">强制</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-router')">
+        <div class="node-title">路由决策器</div>
+        <div class="node-sub">3 档分流</div>
+        <div class="node-tags"><span class="ntag t-amber">自动/审核/人工</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L3 支撑 L2</div></div>
+
+<!-- L3 平台层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L3</span>
+    <span class="layer-name">平台层</span>
+    <span class="layer-desc">Agent 工具集 + 子流程</span>
+  </div>
+  <div class="layer-body">
+    <div class="platform-grid">
+      <div class="sub-section">
+        <div class="sub-section-label">Agent Tools (8 个)</div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="node n-teal" onclick="show('l3-tx')">
+            <div class="node-title">check_transaction</div>
+            <div class="node-sub">查交易状态（链上+卡）</div>
+            <div class="node-tags"><span class="ntag t-teal">高频</span></div>
+          </div>
+          <div class="node n-teal" onclick="show('l3-card')">
+            <div class="node-title">diagnose_card_decline</div>
+            <div class="node-sub">卡拒付原因诊断</div>
+            <div class="node-tags"><span class="ntag t-teal">高频</span></div>
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="node n-teal" onclick="show('l3-kyc')">
+            <div class="node-title">verify_kyc_document</div>
+            <div class="node-sub">证件 OCR + 活体校验</div>
+            <div class="node-tags"><span class="ntag t-teal">合规</span></div>
+          </div>
+          <div class="node n-teal" onclick="show('l3-chain')">
+            <div class="node-title">lookup_chain_risk</div>
+            <div class="node-sub">链上地址风险图谱</div>
+            <div class="node-tags"><span class="ntag t-teal">链上</span></div>
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:8px">
+          <div class="node n-teal" onclick="show('l3-fx')">
+            <div class="node-title">quote_fx_rate</div>
+            <div class="node-sub">实时汇率询价</div>
+            <div class="node-tags"><span class="ntag t-teal">报价</span></div>
+          </div>
+          <div class="node n-teal" onclick="show('l3-merchant')">
+            <div class="node-title">merchant_dispute</div>
+            <div class="node-sub">商户争议工单</div>
+            <div class="node-tags"><span class="ntag t-teal">工单</span></div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="node n-teal" onclick="show('l3-policy')">
+            <div class="node-title">check_compliance</div>
+            <div class="node-sub">区域+用户类型合规校验</div>
+            <div class="node-tags"><span class="ntag t-teal">合规</span></div>
+          </div>
+          <div class="node n-teal" onclick="show('l3-docs')">
+            <div class="node-title">search_dev_docs</div>
+            <div class="node-sub">API 文档语义检索</div>
+            <div class="node-tags"><span class="ntag t-teal">RAG</span></div>
+          </div>
+        </div>
+        <!-- 合规兜底横条 -->
+        <div class="fallback-strip">
+          <span class="fallback-strip-label">合规与风险兜底</span>
+          <span class="fallback-item">资金操作强制 2FA</span>
+          <span class="fallback-item">链上转账不可撤销提示</span>
+          <span class="fallback-item">高额交易风控复核</span>
+          <span class="fallback-item">制裁地区直接拦截</span>
+          <span class="fallback-item">deepfake → 转人工</span>
+        </div>
+      </div>
+      <!-- 子流程 -->
+      <div class="sub-section" style="min-width:200px">
+        <div class="sub-section-label">子流程</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="node n-purple" onclick="show('l3-reasoning')">
+            <div class="node-title">多步推理</div>
+            <div class="node-sub">LLM + Tool 迭代</div>
+          </div>
+          <div class="node n-purple" onclick="show('l3-translate')">
+            <div class="node-title">多语言路由</div>
+            <div class="node-sub">原语种 ↔ 工作语言</div>
+          </div>
+          <div class="node n-coral" onclick="show('l3-escalate')">
+            <div class="node-title">人工兜底</div>
+            <div class="node-sub">资金/争议转客服</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L4 支撑 L3</div></div>
+
+<!-- L4 基座层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L4</span>
+    <span class="layer-name">基座层</span>
+    <span class="layer-desc">系统运行的工程基础</span>
+  </div>
+  <div class="layer-body">
+    <div class="g4">
+      <div class="node n-gray" onclick="show('l4-gateway')">
+        <div class="node-title">LLM 网关</div>
+        <div class="node-sub">多模型路由 + 成本感知</div>
+        <div class="node-tags"><span class="ntag t-gray">熔断重试</span><span class="ntag t-gray">限速</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l4-rag')">
+        <div class="node-title">RAG 引擎</div>
+        <div class="node-sub">多语言 FAQ + 政策库</div>
+        <div class="node-tags"><span class="ntag t-gray">向量检索</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l4-stream')">
+        <div class="node-title">实时数据流</div>
+        <div class="node-sub">链上事件 + 卡组织 Webhook</div>
+        <div class="node-tags"><span class="ntag t-gray">Kafka</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l4-trace')">
+        <div class="node-title">监控 / 审计</div>
+        <div class="node-sub">PCI-DSS 合规链路追踪</div>
+        <div class="node-tags"><span class="ntag t-gray">合规留痕</span><span class="ntag t-coral">不可篡改</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L5 支撑 L4</div></div>
+
+<!-- L5 模型层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L5</span>
+    <span class="layer-name">模型层</span>
+    <span class="layer-desc">成本感知配置 · 多模型协同</span>
+  </div>
+  <div class="layer-body">
+    <div class="model-grid">
+      <div class="model-group">
+        <div class="model-group-label">主力模型 · 多步推理</div>
+        <div class="g2">
+          <div class="node n-purple" onclick="show('l5-claude')">
+            <div class="node-title">Claude Sonnet</div>
+            <div class="node-sub">合规分析 + 长上下文</div>
+            <div class="node-tags"><span class="ntag t-purple">推理优</span></div>
+          </div>
+          <div class="node n-purple" onclick="show('l5-gpt')">
+            <div class="node-title">GPT-4o</div>
+            <div class="node-sub">多语言客服 + 多模态</div>
+            <div class="node-tags"><span class="ntag t-purple">多语优</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="model-group">
+        <div class="model-group-label">专用模型 · 视觉 + 降本</div>
+        <div class="g2">
+          <div class="node n-purple" onclick="show('l5-vision')">
+            <div class="node-title">视觉模型</div>
+            <div class="node-sub">OCR + 活体 + Deepfake</div>
+            <div class="node-tags"><span class="ntag t-purple">KYC</span></div>
+          </div>
+          <div class="node n-purple" onclick="show('l5-small')">
+            <div class="node-title">小模型</div>
+            <div class="node-sub">意图分类 + 闲聊</div>
+            <div class="node-tags"><span class="ntag t-purple">省 70% 成本</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L6 支撑 L5</div></div>
+
+<!-- L6 数据层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L6</span>
+    <span class="layer-name">数据层</span>
+    <span class="layer-desc">DogPay 壁垒数据 · 链上 + 链下双轨</span>
+  </div>
+  <div class="layer-body">
+    <div class="data-grid">
+      <div class="data-group">
+        <div class="data-group-label">核心壁垒数据</div>
+        <div class="g3" style="margin-bottom:8px">
+          <div class="node n-blue" onclick="show('l6-chain')">
+            <div class="node-title">链上风险图谱</div>
+            <div class="node-sub">地址画像 + 关联追踪</div>
+            <div class="node-tags"><span class="ntag t-blue">核心壁垒</span></div>
+          </div>
+          <div class="node n-blue" onclick="show('l6-card')">
+            <div class="node-title">卡片消费记录</div>
+            <div class="node-sub">140 国全币种流水</div>
+            <div class="node-tags"><span class="ntag t-blue">PCI-DSS</span></div>
+          </div>
+          <div class="node n-blue" onclick="show('l6-kyc-data')">
+            <div class="node-title">KYC / KYB 主数据</div>
+            <div class="node-sub">身份 + 商户档案</div>
+            <div class="node-tags"><span class="ntag t-blue">高敏</span></div>
+          </div>
+        </div>
+        <div class="node n-blue" onclick="show('l6-behavior')">
+          <div class="node-title">用户行为画像</div>
+          <div class="node-sub">140 国用户消费习惯 · 充值/出金路径 · AI 订阅偏好 → 个性化推荐 + 风险基线</div>
+          <div class="node-tags"><span class="ntag t-blue">数字游民</span><span class="ntag t-blue">DAO</span><span class="ntag t-blue">SaaS 订阅</span></div>
+        </div>
+      </div>
+      <div class="data-group">
+        <div class="data-group-label">合规与外部数据</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="node n-blue" onclick="show('l6-policy')">
+            <div class="node-title">多辖区政策库</div>
+            <div class="node-sub">HK / SG / EU / US 等</div>
+          </div>
+          <div class="node n-blue" onclick="show('l6-ofac')">
+            <div class="node-title">制裁与黑名单</div>
+            <div class="node-sub">OFAC + EU + UN</div>
+            <div class="node-tags"><span class="ntag t-coral">强制</span></div>
+          </div>
+          <div class="node n-blue" onclick="show('l6-fx')">
+            <div class="node-title">行情/汇率源</div>
+            <div class="node-sub">crypto + fiat 实时</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end tab-arch -->
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TAB 2: Agent 工具集 -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="tab-tools" class="tab-panel">
+
+<p class="tag-page-intro">Agent 通过 Function Calling 调用以下 8 个核心工具完成业务闭环。所有涉及资金、不可撤销操作的工具都内嵌"用户二次确认 + 客服兜底"机制。</p>
+
+<div class="case-grid">
+
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">T1</div>
+    <div>
+      <div class="case-title">客服与交易类工具（高频）</div>
+      <div class="case-sub">解决 60% 以上的日常工单</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">工具列表</div>
+    <div class="g2" style="gap:10px">
+      <div class="node n-teal">
+        <div class="node-title">check_transaction</div>
+        <div class="node-sub">输入 tx_hash 或 card_id，返回链上+链下统一交易视图</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">diagnose_card_decline</div>
+        <div class="node-sub">分析卡拒付原因：余额/区域/MCC/风控触发</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">quote_fx_rate</div>
+        <div class="node-sub">实时报价 crypto ↔ fiat，包含点差和手续费明细</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">merchant_dispute</div>
+        <div class="node-sub">收单商户争议工单生成 + 证据包打包</div>
+      </div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">客服替代率 60%</span>
+    <span class="ctag ctag-amber">中置信度转审核</span>
+    <span class="ctag ctag-coral">不直接动账</span>
+  </div>
+</div>
+
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">T2</div>
+    <div>
+      <div class="case-title">合规与风控工具（高敏）</div>
+      <div class="case-sub">DogPay 牌照与合规底线</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">工具列表</div>
+    <div class="g2" style="gap:10px">
+      <div class="node n-teal">
+        <div class="node-title">verify_kyc_document</div>
+        <div class="node-sub">证件 OCR + 活体检测 + Deepfake 反伪造</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">lookup_chain_risk</div>
+        <div class="node-sub">地址画像：mixer / 交易所 / 项目方 / 黑名单</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">check_compliance</div>
+        <div class="node-sub">用户所在国 + 业务类型双维合规校验</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">search_dev_docs</div>
+        <div class="node-sub">CaaS/PaaS API 文档语义检索 → 开发者答疑</div>
+      </div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-coral">合规红线</span>
+    <span class="ctag ctag-purple">置信度 ≥0.85 才直答</span>
+    <span class="ctag ctag-amber">低置信度 → 人工</span>
+  </div>
+</div>
+
+</div><!-- end case-grid -->
+</div><!-- end tab-tools -->
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TAB 3: 典型场景 -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="tab-cases" class="tab-panel">
+
+<p class="tag-page-intro">以下场景展示 Agent Loop 如何把 DogPay 客服、KYC、风控、开发者支持的核心日常工作 AI 化。每个场景都覆盖一类 P0 业务痛点。</p>
+
+<div class="case-grid">
+
+<!-- CASE 1 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">01</div>
+    <div>
+      <div class="case-title">跨境 SaaS 订阅扣款失败 → 自助诊断</div>
+      <div class="case-sub">用户在新加坡，扣 ChatGPT Plus 失败，问"为什么"</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">用户说的话（英文/中文混合）</div>
+    <div class="bubble">My DogPay card just got declined by ChatGPT. I have enough balance. Why?</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>意图识别 + 语言识别</strong> — 判定为"卡拒付排查"工单，工作语言切英文</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>diagnose_card_decline(card_id)</strong> — 拉取最近一次拒付：MCC 5734 / OpenAI / Singapore IP</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>check_transaction</strong> — 余额充足，确认非余额问题</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>check_compliance(MCC, region)</strong> — 命中 OpenAI 卡组织 BIN 限制规则</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>结构化回复</strong> — 解释原因 + 推荐切换到 DogPay AI 订阅专用卡，附 1 键申请入口</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-amber">意图识别</span>
+    <span class="ctag ctag-teal">diagnose_card_decline</span>
+    <span class="ctag ctag-teal">check_compliance</span>
+    <span class="ctag ctag-purple">交叉销售</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">用户</span>30 秒拿到原因 + 解决方案，不必发工单等 24 小时</div>
+    <div class="value-item"><span class="value-who">DogPay</span>替代 60% 客服重复工单，同时把客服触点变成产品交叉销售入口</div>
+  </div>
+</div>
+
+<!-- CASE 2 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">02</div>
+    <div>
+      <div class="case-title">KYC 智能引导 → 一句话提交</div>
+      <div class="case-sub">新用户上传护照 + 自拍，Agent 全自动审核</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">用户说的话</div>
+    <div class="bubble">我刚注册，需要做 KYC，帮我看下我传的护照和自拍能不能过</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>verify_kyc_document(passport.jpg)</strong> — OCR 识别 + MRZ 校验 + 篡改检测</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>verify_kyc_document(selfie.jpg)</strong> — 活体检测 + Deepfake 反伪造 + 人脸比对</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>check_compliance(country=user.country)</strong> — 命中所属国合规规则，非制裁地区</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>lookup_chain_risk(deposit_address)</strong> — 检查首笔充值地址，无黑名单关联</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>综合裁决</strong> — 置信度 0.92，直接通过；若 &lt;0.75 转人工复核</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">verify_kyc_document</span>
+    <span class="ctag ctag-teal">lookup_chain_risk</span>
+    <span class="ctag ctag-coral">Deepfake 检测</span>
+    <span class="ctag ctag-amber">置信度门禁</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">用户</span>从上传到审核完成 3 分钟，过去要 1~3 天</div>
+    <div class="value-item"><span class="value-who">DogPay</span>合规审核员从"人审 100%"变为"AI 审 90% + 人审 10% 边缘案例"，单审核成本下降 70%</div>
+  </div>
+</div>
+
+<!-- CASE 3 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">03</div>
+    <div>
+      <div class="case-title">链上充值风险 → 自动拦截 + 解释</div>
+      <div class="case-sub">用户从 mixer 服务（如 Tornado Cash）转入 USDT</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">系统事件触发</div>
+    <div class="case-text">链上事件流捕获到一笔入金，金额 5000 USDT，来源地址被链上风险图谱标注为"mixer 关联 · 高风险"。</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>lookup_chain_risk(from_address)</strong> — 风险评分 87/100，关联 Tornado Cash 1 跳</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>check_compliance(action=deposit, region=user.country)</strong> — 命中 AML 规则，强制拦截</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>自动冻结 + 通知用户</strong> — 资金挂起，向用户发送多语言通知 + 申诉入口</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>生成 AML 工单</strong> — 自动打包证据（链上路径、用户画像、风险等级）转合规团队</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>合规复核</strong> — 人工 1~3 工作日内裁决，全程留痕</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">lookup_chain_risk</span>
+    <span class="ctag ctag-coral">AML 强制拦截</span>
+    <span class="ctag ctag-purple">证据包自动化</span>
+    <span class="ctag ctag-amber">人工兜底</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">DogPay</span>保住牌照——AI 实时执行 AML 规则，人工只做边缘复核</div>
+    <div class="value-item"><span class="value-who">合规团队</span>从"被动救火"变为"主动复核"，专注高价值案例</div>
+  </div>
+</div>
+
+<!-- CASE 4 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">04</div>
+    <div>
+      <div class="case-title">开发者 API Copilot → 5 分钟接入 CaaS</div>
+      <div class="case-sub">Web3 项目方想集成 DogPay 卡片发卡能力</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">开发者说的话</div>
+    <div class="bubble">我要给我的 DAO 成员发 USDT 工资卡，怎么用你们 CaaS 一键发卡？给我 Node.js 示例</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>search_dev_docs("CaaS 批量发卡")</strong> — 语义检索官方文档，定位到 /v1/cards/batch_issue</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>generate_code_sample(lang=node)</strong> — 输出可运行的 Node.js 示例 + axios 调用</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>check_compliance(use_case=DAO_payroll)</strong> — 提示需要先做 KYB + 受益人 KYC 流程</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>引导 KYB</strong> — 自动跳转 KYB 流程入口，附上 sandbox API key 申请链接</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">search_dev_docs</span>
+    <span class="ctag ctag-purple">代码生成</span>
+    <span class="ctag ctag-teal">check_compliance</span>
+    <span class="ctag ctag-amber">引导转化</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">开发者</span>从读文档 → 能跑通 demo 的时间从 1 天压缩到 5 分钟</div>
+    <div class="value-item"><span class="value-who">DogPay</span>B2B 接入漏斗顶部转化率提升，Sales Engineer 团队从"答疑"转向"方案咨询"</div>
+  </div>
+</div>
+
+</div><!-- end case-grid -->
+</div><!-- end tab-cases -->
+
+
+<!-- DETAIL PANEL -->
+<div class="overlay" id="overlay" onclick="closePanel(event)">
+  <div class="panel" id="panel">
+    <button class="panel-close" onclick="closePanel()">&#10005;</button>
+    <div class="panel-title" id="pTitle"></div>
+    <div class="panel-type" id="pType"></div>
+    <div class="panel-body" id="pBody"></div>
+    <div id="pExtra"></div>
+  </div>
+</div>
+
+<script>
+const D={
+  'l1-support':{title:'多语言客服',type:'用户层 · L1',body:'140+ 国家用户用母语提问，Agent 自动语种识别、自动调用对应工具、用对应语言回答。覆盖订阅扣款、卡片问题、转账状态、汇率咨询等高频场景。',tags:['15+ 语种','24h 在线','母语回复']},
+  'l1-kyc':{title:'KYC 智能引导',type:'用户层 · L1',body:'用户上传证件 + 自拍后，Agent 自动 OCR、活体、Deepfake 检测、链上首笔充值地址风险查询，置信度 ≥0.85 自动通过，否则转合规人工。',tags:['OCR','活体','Deepfake 反伪造']},
+  'l1-dispute':{title:'风控自助申诉',type:'用户层 · L1',body:'用户卡被冻结或交易被拒后，Agent 引导用户提交申诉材料，自动归档证据，转合规复核。涉及资金的最终裁决一定要人工。',tags:['自助申诉','证据归档','人工兜底']},
+  'l1-copilot':{title:'API Copilot',type:'用户层 · L1',body:'面向 CaaS / Pay-as-a-Service 集成方的智能助手。理解开发者意图，定位文档章节，生成可运行的代码示例，并引导完成 KYB / Sandbox 申请。',tags:['代码生成','KYB 引导','开发者增长']},
+  'l1-finance':{title:'多币种记账',type:'用户层 · L1',body:'面向数字游民、DAO 财务的多币种自动归类、跨链汇总、税务报表生成。crypto + fiat 一张表呈现。',tags:['多币种','跨链汇总','税务友好']},
+  'l2-intent':{title:'多语言意图识别',type:'应用层 · L2',body:'第一道路由：识别用户母语 + 业务意图 + 紧急程度。意图分类小模型先跑，再把结构化输入交给主力推理模型。降低 70% LLM 调用成本。',list:['15+ 工作语种','12 大业务意图','紧急工单优先转人工']},
+  'l2-fusion':{title:'链上链下融合',type:'应用层 · L2',body:'同一笔交易在链上（tx_hash）和链下（card_id / settlement_id）有不同视图。Agent 必须能把双数据源统一为一份用户可理解的解释。',list:['tx_hash ↔ card_id 关联','法币结算路径还原','汇率快照保留']},
+  'l2-risk':{title:'风险评分引擎',type:'应用层 · L2',body:'综合链上地址风险、用户历史画像、设备指纹、IP 异常、交易频次等维度，输出 0~100 风险分。≥80 强制人工，60~80 增强 KYC，<60 直放。',list:['链上风险维度','用户画像维度','行为维度','合规命中']},
+  'l2-compliance':{title:'合规守卫',type:'应用层 · L2',body:'多司法辖区合规：HK / SG / EU / US 等。规则即代码，可热更新。所有"涉资金、可被监管解读为投资建议"的回答自动降级或转人工。',tags:['多辖区','规则即代码','热更新','零容忍']},
+  'l2-router':{title:'路由决策器',type:'应用层 · L2',body:'根据置信度 + 风险等级 + 业务类型分流：高置信度直接答；中置信度 → 客服审核后回复；低置信度或合规高危 → 强制转人工。',list:['HIGH 直接回复','MID 客服审核','LOW / 高敏 → 人工','涉资金一律 2FA']},
+  'l3-tx':{title:'check_transaction',type:'平台层 · L3 · Agent Tool',body:'跨数据源查询某笔交易：链上 tx_hash → 区块浏览器；链下 card_id / settlement_id → 卡组织 + 结算系统。返回统一交易视图。',list:['输入：tx_hash | card_id | settlement_id','输出：状态、金额（多币种）、对手方、时间戳','数据源：链上节点 + 卡组织 Webhook']},
+  'l3-card':{title:'diagnose_card_decline',type:'平台层 · L3 · Agent Tool',body:'诊断卡拒付原因：余额不足、区域限制、MCC 限制、风控触发、卡组织规则、3DS 失败。输出结构化原因 + 建议下一步。',list:['余额维度','MCC / 商户类型维度','地理 / IP 维度','风控触发维度']},
+  'l3-kyc':{title:'verify_kyc_document',type:'平台层 · L3 · Agent Tool',body:'KYC 核心工具：OCR 提取证件信息 + MRZ 校验 + 篡改检测 + 活体检测 + 人脸比对 + Deepfake 反伪造。整合多个视觉模型。',list:['OCR + MRZ','活体（动作 + 纹理）','Deepfake 反伪造','人脸 1:1 比对']},
+  'l3-chain':{title:'lookup_chain_risk',type:'平台层 · L3 · Agent Tool',body:'链上地址风险查询：mixer 关联、交易所关联、黑名单命中、关联跳数。这是 DogPay 反洗钱的核心壁垒之一。',list:['mixer 关联（Tornado 等）','黑名单跳数追踪','交易所地址识别','输出风险分 + 关联路径']},
+  'l3-fx':{title:'quote_fx_rate',type:'平台层 · L3 · Agent Tool',body:'crypto ↔ fiat 双向报价，包含点差、手续费、结算时效。报价有 30 秒时效，超时需重报。',list:['crypto → fiat 全币种','fiat ↔ fiat 多通道（SWIFT / SEPA / ACH / FPS）','30 秒报价时效']},
+  'l3-merchant':{title:'merchant_dispute',type:'平台层 · L3 · Agent Tool',body:'商户争议工单：用户发起 chargeback 时，自动打包证据（交易明细、IP、设备指纹、用户聊天记录），生成卡组织规范的争议材料。',list:['证据包自动打包','卡组织 chargeback code 自动映射','双语用户/商户通知']},
+  'l3-policy':{title:'check_compliance',type:'平台层 · L3 · Agent Tool',body:'输入用户区域 + 业务类型 + 操作类型，返回合规裁决：放行 / 增强审核 / 拦截。规则库可热更新，无需上线。',list:['多辖区规则库','业务类型 × 区域矩阵','输出裁决 + 引用规则编号','审计可追溯']},
+  'l3-docs':{title:'search_dev_docs',type:'平台层 · L3 · Agent Tool',body:'对 CaaS / Pay-as-a-Service / 用户帮助文档做语义检索。返回章节定位 + 关键代码段 + 关联 SDK。开发者 Copilot 的核心工具。',list:['多语言文档索引','章节定位 + 代码段','版本化（兼容旧 SDK）']},
+  'l3-reasoning':{title:'多步推理',type:'平台层 · L3 · 子流程',body:'Agent Loop 核心：LLM 看 messages + tools → 决定调哪些工具 → 并发执行 → 回填结果 → 下一轮，直到收敛。'},
+  'l3-translate':{title:'多语言路由',type:'平台层 · L3 · 子流程',body:'用户原语种 → 工作语种（英文）→ 用户语种回复。所有内部工作语都是英文，便于工程团队 review，输出再翻回母语。'},
+  'l3-escalate':{title:'人工兜底',type:'平台层 · L3 · 子流程',body:'触发条件：涉及资金的最终操作 / 合规高危 / 用户主动要求人工 / 置信度 <0.55 / 风险分 ≥80。Agent 不越权。'},
+  'l4-gateway':{title:'LLM 网关',type:'基座层 · L4',body:'多模型统一入口（Claude / GPT / 国产开源）。按场景路由：合规分析 → Claude；多语言客服 → GPT；意图识别 → 小模型。带成本感知 + 熔断 + 重试。',tags:['多模型路由','成本感知','熔断重试','限速']},
+  'l4-rag':{title:'RAG 引擎',type:'基座层 · L4',body:'多语言知识库检索：用户 FAQ、合规政策、API 文档、内部 SOP。混合检索（关键词 + 向量）+ 重排序。',tags:['多语种向量','混合检索','重排序','版本化']},
+  'l4-stream':{title:'实时数据流',type:'基座层 · L4',body:'统一接入链上事件（节点订阅）+ 卡组织 Webhook + 内部业务事件。Kafka 作总线，给风控引擎和监控审计提供实时输入。',tags:['Kafka','链上节点','卡组织 Webhook','内部事件']},
+  'l4-trace':{title:'监控 / 审计',type:'基座层 · L4',body:'PCI-DSS 要求所有客户数据访问可追溯。Agent 每次工具调用、每次模型输出都留痕，不可篡改。Badcase 可定位到 prompt 版本 + 模型版本。',tags:['PCI-DSS','不可篡改','Badcase 定位','审计回溯']},
+  'l5-claude':{title:'Claude Sonnet',type:'模型层 · L5',body:'用于合规分析、长上下文场景（多笔交易关联分析、KYC 文档综合判定）。推理稳定性优先。',tags:['长上下文','合规分析','Temperature 0.2']},
+  'l5-gpt':{title:'GPT-4o',type:'模型层 · L5',body:'用于多语言客服、多模态（截图 + 文本）问答。语种覆盖度优于其他模型。',tags:['多语种','多模态','客服首选']},
+  'l5-vision':{title:'视觉模型',type:'模型层 · L5',body:'KYC 专用视觉栈：OCR（PaddleOCR / Tesseract）+ 活体（动作 + 纹理）+ Deepfake 反伪造（独立模型）+ 人脸比对（ArcFace 系）。',tags:['OCR','活体','Deepfake','人脸比对']},
+  'l5-small':{title:'小模型',type:'模型层 · L5',body:'意图分类、闲聊回复、敏感词过滤。覆盖 70% 流量，单次成本约为主力模型的 3%，整体省 70% 成本。',tags:['意图分类','闲聊','降本']},
+  'l6-chain':{title:'链上风险图谱',type:'数据层 · L6',body:'DogPay 核心壁垒之一：所有曾接触过 DogPay 业务的链上地址都进入图谱，标注画像（交易所/项目方/mixer/黑名单），关联 N 跳追踪。',list:['地址画像维度','N 跳关联追踪','与 Chainalysis / TRM 等外部源融合','自有用户行为数据反哺图谱']},
+  'l6-card':{title:'卡片消费记录',type:'数据层 · L6',body:'PCI-DSS Level 1 合规存储的全球卡片消费流水。Agent 访问受严格权限控制，且每次访问都留痕审计。',tags:['PCI-DSS L1','全球流水','权限受控','访问留痕']},
+  'l6-kyc-data':{title:'KYC / KYB 主数据',type:'数据层 · L6',body:'个人 KYC 主档 + 商户 KYB 主档。受 GDPR / 各辖区数据保护法约束，跨境调用要做数据本地化适配。',tags:['GDPR','数据本地化','跨境合规']},
+  'l6-behavior':{title:'用户行为画像',type:'数据层 · L6',body:'140 国用户的行为聚类：数字游民 / DAO 财务 / SaaS 订阅党 / 跨境电商 / Web3 散户。用于风险基线、个性化推荐、产品迭代。',list:['身份聚类','消费节奏','充值出金路径偏好','AI/SaaS 订阅偏好']},
+  'l6-policy':{title:'多辖区政策库',type:'数据层 · L6',body:'HK / SG / EU / US / 主要新兴市场的金融政策、加密资产监管、卡组织规则。规则即代码，监管变化可热更新。',tags:['HK','SG','EU','US','规则即代码']},
+  'l6-ofac':{title:'制裁与黑名单',type:'数据层 · L6',body:'OFAC + EU + UN + 内部黑名单的统一接入。命中即拦截，全程留痕，配合监管检查。',tags:['OFAC','EU','UN','内部名单']},
+  'l6-fx':{title:'行情 / 汇率源',type:'数据层 · L6',body:'crypto 行情（CMC / CG / 自有撮合）+ fiat 汇率（路透 / 央行）+ 内部撮合点差。报价 30 秒级时效。',tags:['crypto 行情','fiat 汇率','内部撮合','30 秒时效']},
+};
+
+function show(id){
+  const d=D[id];if(!d)return;
+  document.getElementById('pTitle').textContent=d.title;
+  document.getElementById('pType').textContent=d.type;
+  document.getElementById('pBody').textContent=d.body;
+  const ex=document.getElementById('pExtra');ex.innerHTML='';
+  if(d.list){
+    const s=document.createElement('div');s.className='panel-section';
+    s.innerHTML='<div class="panel-section-title">关键细节</div>';
+    const ul=document.createElement('ul');ul.className='panel-list';
+    d.list.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
+    s.appendChild(ul);ex.appendChild(s);
+  }
+  if(d.tags){
+    const s=document.createElement('div');s.className='panel-section';
+    s.innerHTML='<div class="panel-section-title">标签</div><div class="panel-tags"></div>';
+    const row=s.querySelector('.panel-tags');
+    d.tags.forEach(t=>{const sp=document.createElement('span');sp.className='panel-tag';sp.textContent=t;row.appendChild(sp);});
+    ex.appendChild(s);
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+function closePanel(e){if(!e||e.target===document.getElementById('overlay'))document.getElementById('overlay').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
+</script>
+</body>
+</html>

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FIN AI · 系统架构</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f6f2;
+  --surface:#ffffff;
+  --surface2:#f0ede6;
+  --border:#e2ddd6;
+  --border2:#d4cfc6;
+  --text:#1a1816;
+  --text2:#5c574f;
+  --text3:#a09a90;
+
+  --blue:#2563eb;--blue-bg:#eff6ff;--blue-bd:#bdd4f7;
+  --teal:#00897b;--teal-bg:#e8f5f3;--teal-bd:#9fd9d2;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-bd:#f5d190;
+  --coral:#e05a44;--coral-bg:#fff4f2;--coral-bd:#f5bdb3;
+  --purple:#6c5ce7;--purple-bg:#f0eeff;--purple-bd:#c9c0f5;
+  --gray:#4b5563;--gray-bg:#f3f4f6;--gray-bd:#d1d5db;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;font-weight:400;
+  line-height:1.6;min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 60% 30% at 20% 0%,rgba(108,92,231,.04) 0%,transparent 70%),
+    radial-gradient(ellipse 40% 25% at 80% 100%,rgba(0,137,123,.03) 0%,transparent 70%);
+}
+.page{max-width:1280px;margin:0 auto;padding:48px 32px 80px}
+
+/* HEADER */
+.header{margin-bottom:48px}
+.eyebrow{font-family:'DM Mono',monospace;font-size:14px;color:var(--blue);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;font-weight:500}
+h1{font-family:'Syne','Noto Sans SC',sans-serif;font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--text);margin-bottom:12px;line-height:1.15}
+h1 em{font-style:normal;color:var(--purple)}
+.sub{font-size:17px;color:var(--text2);max-width:700px;line-height:1.75;margin-bottom:20px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-family:'DM Mono',monospace;font-size:13px;padding:5px 14px;border-radius:6px;border:1px solid var(--border2);color:var(--text2);background:var(--surface);font-weight:500}
+
+/* LEGEND */
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:36px}
+.leg{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--text2);padding:5px 14px;border-radius:24px;border:1px solid var(--border);background:var(--surface);font-weight:400}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* ARROW CONNECTOR */
+.connector{display:flex;align-items:center;justify-content:center;height:40px;position:relative}
+.conn-line{width:2px;height:40px;background:linear-gradient(to top,var(--border2),var(--border))}
+.conn-arrow{position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:8px solid var(--border2)}
+.conn-label{position:absolute;right:calc(50% + 16px);top:50%;transform:translateY(-50%);font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);white-space:nowrap;font-weight:500}
+
+/* LAYER */
+.layer{border-radius:16px;border:1px solid var(--border);background:var(--surface);overflow:hidden;margin-bottom:0}
+.layer-header{padding:16px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:14px}
+.layer-num{font-family:'DM Mono',monospace;font-size:14px;color:var(--text3);flex-shrink:0;font-weight:500}
+.layer-name{font-size:18px;font-weight:600;color:var(--text)}
+.layer-desc{font-size:14px;color:var(--text3);margin-left:auto;font-family:'DM Mono',monospace}
+.layer-body{padding:18px 20px}
+
+/* NODE */
+.node{border-radius:10px;border:1px solid;padding:14px 16px;cursor:pointer;transition:all .15s;position:relative}
+.node:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.node-title{font-size:16px;font-weight:600;margin-bottom:4px;letter-spacing:0.01em}
+.node-sub{font-size:14px;line-height:1.6}
+.node-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.ntag{font-size:12px;padding:2px 8px;border-radius:4px;font-family:'DM Mono',monospace;font-weight:500}
+
+/* node color variants */
+.n-blue{background:var(--blue-bg);border-color:var(--blue-bd)}.n-blue .node-title{color:var(--blue)}.n-blue .node-sub{color:#4b7fd4}.n-blue:hover{border-color:var(--blue)}
+.n-purple{background:var(--purple-bg);border-color:var(--purple-bd)}.n-purple .node-title{color:var(--purple)}.n-purple .node-sub{color:#7c70d4}.n-purple:hover{border-color:var(--purple)}
+.n-teal{background:var(--teal-bg);border-color:var(--teal-bd)}.n-teal .node-title{color:var(--teal)}.n-teal .node-sub{color:#4aab9f}.n-teal:hover{border-color:var(--teal)}
+.n-amber{background:var(--amber-bg);border-color:var(--amber-bd)}.n-amber .node-title{color:var(--amber)}.n-amber .node-sub{color:#b8850a}.n-amber:hover{border-color:var(--amber)}
+.n-gray{background:var(--gray-bg);border-color:var(--gray-bd)}.n-gray .node-title{color:var(--gray)}.n-gray .node-sub{color:#6b7280}.n-gray:hover{border-color:var(--gray)}
+.n-coral{background:var(--coral-bg);border-color:var(--coral-bd)}.n-coral .node-title{color:var(--coral)}.n-coral .node-sub{color:#c44a3a}.n-coral:hover{border-color:var(--coral)}
+
+/* tag colors */
+.t-blue{background:#dbeafe;color:var(--blue)}
+.t-purple{background:#ede9ff;color:var(--purple)}
+.t-teal{background:#d4f0ed;color:var(--teal)}
+.t-amber{background:#fef3c7;color:var(--amber)}
+.t-gray{background:#e5e7eb;color:var(--gray)}
+.t-coral{background:#fee2e2;color:var(--coral)}
+
+/* GRIDS */
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* sub-sections */
+.sub-section{border:1px dashed var(--border2);border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.6)}
+.sub-section-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.platform-grid{display:grid;grid-template-columns:1fr auto;gap:12px}
+
+/* fallback strip */
+.fallback-strip{border:1px solid #fecaca;background:#fff5f5;border-radius:8px;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+.fallback-strip-label{font-family:'DM Mono',monospace;font-size:13px;color:#dc2626;font-weight:500;flex-shrink:0}
+.fallback-item{font-size:14px;color:#b91c1c;display:flex;gap:6px;align-items:center}
+.fallback-item::before{content:"\21AA";flex-shrink:0;opacity:.7}
+
+/* model grid */
+.model-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.model-group{border:1px dashed var(--border2);border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.5)}
+.model-group-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+
+/* data grid */
+.data-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.data-group{border:1px dashed var(--border2);border-radius:10px;padding:14px 16px;background:rgba(255,255,255,.5)}
+.data-group-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+
+/* detail overlay */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.overlay.open{display:flex}
+.panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:32px;max-width:520px;width:calc(100% - 48px);max-height:80vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.12)}
+.panel-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center}
+.panel-close:hover{background:#f0ede6;color:var(--text)}
+.panel-title{font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px}
+.panel-type{font-size:13px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:16px}
+.panel-body{font-size:16px;color:var(--text2);line-height:1.8}
+.panel-section{margin-top:16px}
+.panel-section-title{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:8px}
+.panel-list{list-style:none;display:flex;flex-direction:column;gap:6px}
+.panel-list li{font-size:15px;color:var(--text2);display:flex;gap:8px;line-height:1.6}
+.panel-list li::before{content:"\00B7";color:var(--text3);flex-shrink:0}
+.panel-tags{display:flex;gap:6px;flex-wrap:wrap}
+.panel-tag{font-size:13px;padding:3px 10px;border-radius:5px;background:var(--gray-bg);color:var(--gray);font-family:'DM Mono',monospace}
+
+/* entrance */
+.layer{opacity:0;transform:translateY(8px);animation:up .4s ease forwards}
+@keyframes up{to{opacity:1;transform:none}}
+.layer:nth-child(1){animation-delay:.04s}
+.layer:nth-child(3){animation-delay:.1s}
+.layer:nth-child(5){animation-delay:.16s}
+.layer:nth-child(7){animation-delay:.22s}
+.layer:nth-child(9){animation-delay:.28s}
+.layer:nth-child(11){animation-delay:.34s}
+
+@media(max-width:900px){
+  .g5,.g4,.g3{grid-template-columns:1fr 1fr}
+  .platform-grid,.model-grid,.data-grid{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  .g5,.g4,.g3,.g2{grid-template-columns:1fr}
+}
+
+/* TAB NAV */
+.tab-nav{display:flex;gap:4px;margin-bottom:36px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab-btn{font-family:'Noto Sans SC',sans-serif;font-size:15px;padding:12px 24px;border:none;background:transparent;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;border-radius:8px 8px 0 0;white-space:nowrap;font-weight:500}
+.tab-btn:hover{color:var(--text2);background:var(--surface2)}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);background:var(--surface);font-weight:600}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* CASE TAB */
+.case-grid{display:flex;flex-direction:column;gap:28px;margin-bottom:36px}
+.case-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.case-header{display:flex;align-items:flex-start;gap:20px;padding:24px 24px 20px;border-bottom:1px solid var(--border)}
+.case-num{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--blue);opacity:.25;flex-shrink:0;line-height:1}
+.case-title{font-size:18px;font-weight:600;color:var(--text);margin-bottom:6px}
+.case-sub{font-size:14px;color:var(--text3);font-family:'DM Mono',monospace}
+.case-block{padding:18px 24px;border-bottom:1px solid var(--border)}
+.case-block:last-of-type{border-bottom:none}
+.case-block-label{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-weight:500}
+.case-text{font-size:15px;color:var(--text2);line-height:1.8}
+.bubble{background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:12px 12px 12px 3px;padding:14px 18px;font-size:16px;color:var(--text);line-height:1.7;display:inline-block;max-width:90%}
+
+/* flow steps */
+.flow-steps{display:flex;flex-direction:column;gap:0}
+.flow-step{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:16px}
+.flow-step-last{padding-bottom:0}
+.flow-dot{width:10px;height:10px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:6px;position:relative;z-index:1}
+.flow-dot::after{content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% + 6px);background:var(--blue-bd)}
+.flow-step-last .flow-dot::after{display:none}
+.flow-dot-end{background:var(--teal)}
+.flow-content{font-size:15px;color:var(--text2);line-height:1.7}
+.flow-content strong{color:var(--text);font-weight:600}
+
+/* case tags */
+.case-tags-row{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;background:var(--surface2);border-top:1px solid var(--border)}
+.ctag{font-size:13px;padding:4px 12px;border-radius:6px;font-family:'DM Mono',monospace;font-weight:500}
+.ctag-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.ctag-teal{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-bd)}
+.ctag-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)}
+.ctag-coral{background:var(--coral-bg);color:var(--coral);border:1px solid var(--coral-bd)}
+.ctag-purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd)}
+
+/* value row */
+.case-value{display:flex;flex-direction:column;gap:8px;padding:14px 24px 20px}
+.value-item{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text2);line-height:1.65}
+.value-who{font-family:'DM Mono',monospace;font-size:12px;padding:3px 10px;border-radius:5px;background:var(--gray-bg);color:var(--gray);font-weight:500;flex-shrink:0;margin-top:3px}
+
+/* confidence section */
+.confidence-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px}
+.conf-card{border-radius:12px;padding:20px;text-align:center}
+.conf-card-high{background:#e8f5f3;border:1px solid #9fd9d2}
+.conf-card-mid{background:#fffbeb;border:1px solid #f5d190}
+.conf-card-low{background:#f3f4f6;border:1px solid #d1d5db}
+.conf-label{font-size:13px;font-family:'DM Mono',monospace;margin-bottom:6px;font-weight:500}
+.conf-label-high{color:var(--teal)}
+.conf-label-mid{color:var(--amber)}
+.conf-label-low{color:var(--text3)}
+.conf-action{font-size:15px;color:var(--text2);line-height:1.6}
+.conf-range{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;margin-bottom:6px}
+.conf-range[style*="--teal"]{color:var(--teal)}
+.conf-range[style*="--amber"]{color:var(--amber)}
+
+.tag-page-intro{font-size:16px;color:var(--text2);line-height:1.8;max-width:700px;margin-bottom:24px}
+
+/* PROJECT BACKGROUND */
+.bg-section{margin-bottom:40px;animation:up .4s ease both;animation-delay:.06s;opacity:0;transform:translateY(8px)}
+.bg-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:20px}
+.bg-narrative{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 32px}
+.bg-label{font-family:'DM Mono',monospace;font-size:13px;color:var(--purple);letter-spacing:.18em;text-transform:uppercase;font-weight:500;margin-bottom:14px}
+.bg-headline{font-size:22px;font-weight:600;color:var(--text);margin-bottom:14px;line-height:1.45}
+.bg-headline em{font-style:normal;color:var(--purple)}
+.bg-text{font-size:15px;color:var(--text2);line-height:1.85}
+.bg-divider{margin:20px 0;padding-top:20px;border-top:1px dashed var(--border2)}
+.bg-philosophy-label{font-family:'DM Mono',monospace;font-size:12px;color:var(--teal);letter-spacing:.14em;text-transform:uppercase;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.bg-philosophy-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal)}
+
+.bg-stats{display:flex;flex-direction:column;gap:12px}
+.bg-stats-header{font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);letter-spacing:.18em;text-transform:uppercase;font-weight:500;margin-bottom:2px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 22px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--purple)}
+.stat-card-from{font-size:13px;color:var(--text3);font-weight:500;margin-bottom:6px;letter-spacing:.04em}
+.stat-card-flow{font-size:17px;color:var(--text);font-weight:600;line-height:1.5;font-family:'DM Mono','Noto Sans SC',monospace;font-variant-numeric:tabular-nums}
+.stat-card-arrow{color:var(--purple);font-weight:500;margin:0 6px}
+.stat-card-multi{position:absolute;right:22px;top:50%;transform:translateY(-50%);font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--purple);opacity:.5;letter-spacing:-.02em}
+.bg-role{background:#f0ede6;border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+.bg-role-label{font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:500;font-family:'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.bg-role-flow{font-size:14px;color:var(--text);font-weight:500;line-height:1.7}
+.bg-role-flow span{color:var(--purple);margin:0 4px;font-weight:600}
+
+@media(max-width:900px){.bg-grid{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<div class="header" style="animation:up .35s ease both">
+  <div class="eyebrow">System Architecture v1.0</div>
+  <h1>FIN AI<em> · </em>金融研究智能体架构</h1>
+  <div class="sub">基于 Agent Loop 的金融研究智能体——将分析师能力 AI 化，通过多步推理、多源数据调用与自主验证的闭环，实现散户答疑的规模化交付。</div>
+  <div class="chips">
+    <span class="chip">Agent Loop</span>
+    <span class="chip">OpenRouter</span>
+    <span class="chip">DeepSeek</span>
+    <span class="chip">Tushare API</span>
+    <span class="chip">SSE Streaming</span>
+    <span class="chip">Confidence Scoring</span>
+    <span class="chip">Next.js 16</span>
+  </div>
+</div>
+
+<!-- PROJECT BACKGROUND -->
+<div class="bg-section">
+  <div class="bg-grid">
+    <div class="bg-narrative">
+      <div class="bg-label">Project Background · 项目背景</div>
+      <div class="bg-headline">把分析师的研判能力 <em>AI 化</em>，打破规模化瓶颈</div>
+      <p class="bg-text">交易所的商业模式高度依赖营销人员一对一维护客户，分析师的研判产能被营销人力卡死，规模化天花板显著。FIN AI 的命题——把分析师的「研判 + 答疑 + 内容找回」AI 化，让一份研判能规模化触达散户。</p>
+      <div class="bg-divider">
+        <div class="bg-philosophy-label">产品哲学</div>
+        <p class="bg-text">本质上是把分析师的研判成果转化为散户能直接用的东西。类比保险的包装逻辑——卖的不是一堆条款，而是「买了能保什么、值不值」的感知。金融产品同理：把底层数据和分析逻辑，包装成一个有清晰价值感的产品交付出去。</p>
+      </div>
+    </div>
+
+    <div class="bg-stats">
+      <div class="bg-stats-header">Outcome · 业务成果</div>
+      <div class="stat-card">
+        <div class="stat-card-from">客户入金</div>
+        <div class="stat-card-flow">¥20 万<span class="stat-card-arrow">→</span>¥2000 万</div>
+        <div class="stat-card-multi">100×</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-from">手续费收入</div>
+        <div class="stat-card-flow">日均千元<span class="stat-card-arrow">→</span>日均万元</div>
+        <div class="stat-card-multi">10×</div>
+      </div>
+      <div class="bg-role">
+        <div class="bg-role-label">My Role · 全链路主导</div>
+        <div class="bg-role-flow">架构选型<span>→</span>知识库设计<span>→</span>Prompt 工程<span>→</span>研发协同</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:var(--blue)"></div>LLM / 推理</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--teal)"></div>工具 / API</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--amber)"></div>编排 / 路由</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--purple)"></div>数据底座</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--gray)"></div>基础设施</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--coral)"></div>合规红线</div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('arch',this)">系统架构</button>
+  <button class="tab-btn" onclick="switchTab('loop',this)">Agent Loop</button>
+  <button class="tab-btn" onclick="switchTab('cases',this)">典型场景</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TAB 1: 系统架构 -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="tab-arch" class="tab-panel active">
+
+<!-- L1 用户层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L1</span>
+    <span class="layer-name">用户层</span>
+    <span class="layer-desc">散户可感知的功能场景</span>
+  </div>
+  <div class="layer-body">
+    <div class="g5">
+      <div class="node n-gray" onclick="show('l1-market')">
+        <div class="node-title">行情问答</div>
+        <div class="node-sub">实时/历史价格查询</div>
+        <div class="node-tags"><span class="ntag t-gray">高频</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-position')">
+        <div class="node-title">持仓分析</div>
+        <div class="node-sub">加仓/减仓/止损</div>
+        <div class="node-tags"><span class="ntag t-gray">高频</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-research')">
+        <div class="node-title">研报解读</div>
+        <div class="node-sub">研判检索+摘要</div>
+        <div class="node-tags"><span class="ntag t-gray">中频</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-retrieve')">
+        <div class="node-title">内容找回</div>
+        <div class="node-sub">历史研报/周报定位</div>
+        <div class="node-tags"><span class="ntag t-gray">中频</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l1-follow')">
+        <div class="node-title">跟单追踪</div>
+        <div class="node-sub">分析师观点跟进</div>
+        <div class="node-tags"><span class="ntag t-gray">高频</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L2 支撑 L1</div></div>
+
+<!-- L2 应用层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L2</span>
+    <span class="layer-name">应用层</span>
+    <span class="layer-desc">Agent 核心业务能力</span>
+  </div>
+  <div class="layer-body">
+    <div class="g5">
+      <div class="node n-amber" onclick="show('l2-loop')">
+        <div class="node-title">Agent Loop</div>
+        <div class="node-sub">迭代推理引擎</div>
+        <div class="node-tags"><span class="ntag t-amber">max 6轮</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-router')">
+        <div class="node-title">路由决策器</div>
+        <div class="node-sub">置信度分流</div>
+        <div class="node-tags"><span class="ntag t-amber">3档分流</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-factcheck')">
+        <div class="node-title">事实校验</div>
+        <div class="node-sub">相似度+来源比对</div>
+        <div class="node-tags"><span class="ntag t-amber">防幻觉</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-confidence')">
+        <div class="node-title">置信度评估</div>
+        <div class="node-sub">启发式评分</div>
+        <div class="node-tags"><span class="ntag t-amber">0.4~0.95</span></div>
+      </div>
+      <div class="node n-amber" onclick="show('l2-compliance')">
+        <div class="node-title">合规守卫</div>
+        <div class="node-sub">红线检测+降级</div>
+        <div class="node-tags"><span class="ntag t-coral">强制</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L3 支撑 L2</div></div>
+
+<!-- L3 平台层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L3</span>
+    <span class="layer-name">平台层</span>
+    <span class="layer-desc">工具执行 + 子流程</span>
+  </div>
+  <div class="layer-body">
+    <div class="platform-grid">
+      <div class="sub-section">
+        <div class="sub-section-label">Agent Tools (4 个)</div>
+        <div class="g2" style="margin-bottom:10px">
+          <div class="node n-teal" onclick="show('l3-quote')">
+            <div class="node-title">fetch_quote</div>
+            <div class="node-sub">A 股最新日线行情</div>
+            <div class="node-tags"><span class="ntag t-teal">Tushare</span></div>
+          </div>
+          <div class="node n-teal" onclick="show('l3-fundamental')">
+            <div class="node-title">fetch_fundamental</div>
+            <div class="node-sub">最近一期财务快照</div>
+            <div class="node-tags"><span class="ntag t-teal">Tushare</span></div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="node n-teal" onclick="show('l3-notes')">
+            <div class="node-title">search_analyst_notes</div>
+            <div class="node-sub">三维索引检索研判</div>
+            <div class="node-tags"><span class="ntag t-teal">知识库</span></div>
+          </div>
+          <div class="node n-teal" onclick="show('l3-conflict')">
+            <div class="node-title">detect_conflicting_views</div>
+            <div class="node-sub">多分析师观点冲突检测</div>
+            <div class="node-tags"><span class="ntag t-teal">冲突检测</span></div>
+          </div>
+        </div>
+        <!-- 兜底横条 -->
+        <div class="fallback-strip">
+          <span class="fallback-strip-label">合规兜底</span>
+          <span class="fallback-item">禁止买卖建议</span>
+          <span class="fallback-item">禁止预测目标价</span>
+          <span class="fallback-item">低置信度标仅供参考</span>
+          <span class="fallback-item">涉交易强制转人工</span>
+        </div>
+      </div>
+      <!-- 子流程 -->
+      <div class="sub-section" style="min-width:200px">
+        <div class="sub-section-label">子流程</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="node n-blue" onclick="show('l3-reasoning')">
+            <div class="node-title">多步推理</div>
+            <div class="node-sub">LLM + Tool 迭代至收敛</div>
+          </div>
+          <div class="node n-blue" onclick="show('l3-verify')">
+            <div class="node-title">结论校验</div>
+            <div class="node-sub">来源追溯+相似度</div>
+          </div>
+          <div class="node n-coral" onclick="show('l3-escalate')">
+            <div class="node-title">人工兜底</div>
+            <div class="node-sub">合规高危 → 转分析师</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L4 支撑 L3</div></div>
+
+<!-- L4 基座层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L4</span>
+    <span class="layer-name">基座层</span>
+    <span class="layer-desc">系统运行的工程基础</span>
+  </div>
+  <div class="layer-body">
+    <div class="g4">
+      <div class="node n-gray" onclick="show('l4-nextjs')">
+        <div class="node-title">Next.js 16 App</div>
+        <div class="node-sub">React 19 + Turbopack</div>
+        <div class="node-tags"><span class="ntag t-gray">SSR</span><span class="ntag t-gray">API Routes</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l4-openrouter')">
+        <div class="node-title">OpenRouter Gateway</div>
+        <div class="node-sub">LLM 统一调用入口</div>
+        <div class="node-tags"><span class="ntag t-gray">多模型切换</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l4-sse')">
+        <div class="node-title">SSE Event Stream</div>
+        <div class="node-sub">实时推理轨迹推送</div>
+        <div class="node-tags"><span class="ntag t-gray">AsyncGenerator</span></div>
+      </div>
+      <div class="node n-gray" onclick="show('l4-prompt')">
+        <div class="node-title">System Prompt</div>
+        <div class="node-sub">角色+约束+输出格式</div>
+        <div class="node-tags"><span class="ntag t-gray">合规内嵌</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L5 支撑 L4</div></div>
+
+<!-- L5 模型层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L5</span>
+    <span class="layer-name">模型层</span>
+    <span class="layer-desc">LLM 配置</span>
+  </div>
+  <div class="layer-body">
+    <div class="model-grid">
+      <div class="model-group">
+        <div class="model-group-label">主力推理模型</div>
+        <div class="node n-blue" onclick="show('l5-deepseek')">
+          <div class="node-title">DeepSeek Chat v3.1</div>
+          <div class="node-sub">多步推理 + Function Calling</div>
+          <div class="node-tags"><span class="ntag t-blue">Temperature 0.3</span><span class="ntag t-blue">1200 tokens</span></div>
+        </div>
+      </div>
+      <div class="model-group">
+        <div class="model-group-label">配置参数</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="node n-gray" onclick="show('l5-config')">
+            <div class="node-title">Agent Loop 参数</div>
+            <div class="node-sub">max_iterations: 6 / 并发工具执行</div>
+            <div class="node-tags"><span class="ntag t-gray">可配置</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="connector"><div class="conn-line"></div><div class="conn-arrow"></div><div class="conn-label">L6 支撑 L5</div></div>
+
+<!-- L6 数据层 -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-num">L6</span>
+    <span class="layer-name">数据层</span>
+    <span class="layer-desc">真实行情 + 知识库</span>
+  </div>
+  <div class="layer-body">
+    <div class="data-grid">
+      <div class="data-group">
+        <div class="data-group-label">外部数据源</div>
+        <div class="g2" style="margin-bottom:10px">
+          <div class="node n-purple" onclick="show('l6-tushare')">
+            <div class="node-title">Tushare Pro API</div>
+            <div class="node-sub">A 股日线行情 + 财报数据</div>
+            <div class="node-tags"><span class="ntag t-purple">真实数据</span></div>
+          </div>
+          <div class="node n-purple" onclick="show('l6-stock')">
+            <div class="node-title">股票列表</div>
+            <div class="node-sub">8 只 A 股 Demo 标的</div>
+            <div class="node-tags"><span class="ntag t-purple">mock-data</span></div>
+          </div>
+        </div>
+        <div class="node n-purple" onclick="show('l6-knowledge')">
+          <div class="node-title">分析师研判知识库</div>
+          <div class="node-sub">三维索引：品种 x 时间 x 研判类型（5 类）· 置信度 + 观点方向 + 有效期</div>
+          <div class="node-tags"><span class="ntag t-purple">event_driven</span><span class="ntag t-purple">valuation</span><span class="ntag t-purple">trend</span><span class="ntag t-purple">risk_alert</span><span class="ntag t-purple">earnings_review</span></div>
+        </div>
+      </div>
+      <div class="data-group">
+        <div class="data-group-label">前端状态</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="node n-purple" onclick="show('l6-localstorage')">
+            <div class="node-title">localStorage</div>
+            <div class="node-sub">知识库快照 + 对话记录</div>
+          </div>
+          <div class="node n-purple" onclick="show('l6-workspace')">
+            <div class="node-title">Workspace Store</div>
+            <div class="node-sub">组件布局 + 数据连接</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end tab-arch -->
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TAB 2: Agent Loop -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="tab-loop" class="tab-panel">
+
+<p class="tag-page-intro">Agent Loop 是 FIN AI 的推理核心。借鉴 Dexter Agent 的迭代循环模式，通过 LLM + Tool Calling 实现多步推理，直到收敛为最终答案。</p>
+
+<div class="case-card" style="margin-bottom:28px">
+  <div class="case-header">
+    <div class="case-num">LP</div>
+    <div>
+      <div class="case-title">Agent Loop 执行流程</div>
+      <div class="case-sub">loop { LLM -> tool_calls? -> execute -> repeat } until convergence</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">核心循环</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>1. System Prompt 注入</strong> — 金融研究分析师角色 + 合规约束 + 输出格式要求</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>2. LLM 推理</strong> — DeepSeek 分析 messages + tools schema，决定调用哪些工具</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>3. 工具并发执行</strong> — Promise.all 并行执行所有 tool_calls（fetch_quote / search_notes / ...）</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>4. 结果回填</strong> — ToolMessage 追加到 messages，进入下一轮 LLM 推理</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>5. 收敛判断</strong> — 若 LLM 不再调用工具 → 输出最终答案 + 置信度评分</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>6. 事件推送</strong> — 全程 SSE yield AgentEvent（started / thinking / tool_start / tool_end / done）</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-blue">AsyncGenerator</span>
+    <span class="ctag ctag-teal">Promise.all</span>
+    <span class="ctag ctag-amber">max 6 iterations</span>
+    <span class="ctag ctag-purple">confidence scoring</span>
+  </div>
+</div>
+
+<!-- 置信度评分 -->
+<div class="case-card" style="margin-bottom:28px">
+  <div class="case-header">
+    <div class="case-num">CF</div>
+    <div>
+      <div class="case-title">置信度评估机制</div>
+      <div class="case-sub">启发式评分 → 三档分流 → 合规降级</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">评分公式</div>
+    <div class="case-text">
+      基础分 0.55 + 成功工具调用 * 0.08（上限 +0.24）+ 去重数据源 * 0.05（上限 +0.2）<br>
+      工具失败率 > 50% → 封顶 0.55 &nbsp;|&nbsp; 零工具调用 → 直接 0.5
+    </div>
+  </div>
+  <div class="case-block" style="border-bottom:none">
+    <div class="case-block-label">三档分流</div>
+    <div class="confidence-grid">
+      <div class="conf-card conf-card-high">
+        <div class="conf-label conf-label-high">HIGH</div>
+        <div class="conf-range" style="color:var(--teal)">0.75 ~ 0.95</div>
+        <div class="conf-action">直接给散户答案</div>
+      </div>
+      <div class="conf-card conf-card-mid">
+        <div class="conf-label conf-label-mid">MEDIUM</div>
+        <div class="conf-range" style="color:var(--amber)">0.55 ~ 0.74</div>
+        <div class="conf-action">转助理审核后回复</div>
+      </div>
+      <div class="conf-card conf-card-low">
+        <div class="conf-label conf-label-low">LOW</div>
+        <div class="conf-range" style="color:var(--text3)">0.40 ~ 0.54</div>
+        <div class="conf-action">标"仅供参考"<br>或转分析师</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 事件类型 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">EV</div>
+    <div>
+      <div class="case-title">AgentEvent 事件类型</div>
+      <div class="case-sub">SSE 流式推送给前端，驱动推理轨迹 UI</div>
+    </div>
+  </div>
+  <div class="case-block" style="border-bottom:none">
+    <div class="case-block-label">事件列表</div>
+    <div class="g3">
+      <div class="node n-blue">
+        <div class="node-title">started</div>
+        <div class="node-sub">taskId + query 初始化</div>
+      </div>
+      <div class="node n-blue">
+        <div class="node-title">thinking</div>
+        <div class="node-sub">LLM 伴随文本（推理中）</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">tool_start</div>
+        <div class="node-sub">工具开始执行</div>
+      </div>
+      <div class="node n-teal">
+        <div class="node-title">tool_end</div>
+        <div class="node-sub">工具执行成功</div>
+      </div>
+      <div class="node n-coral">
+        <div class="node-title">tool_error</div>
+        <div class="node-sub">工具执行失败</div>
+      </div>
+      <div class="node n-amber">
+        <div class="node-title">done</div>
+        <div class="node-sub">最终答案 + 置信度 + 来源</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end tab-loop -->
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TAB 3: 典型场景 -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="tab-cases" class="tab-panel">
+
+<p class="tag-page-intro">以下场景展示 Agent Loop 如何将分析师助理的日常答疑工作 AI 化，覆盖行情查询、研判解读、观点冲突检测等核心场景。</p>
+
+<div class="case-grid">
+
+<!-- CASE 1 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">01</div>
+    <div>
+      <div class="case-title">行情问答 + 基本面综合分析</div>
+      <div class="case-sub">散户问「茅台最近怎么样」→ Agent 拉行情 + 财报 + 研判 → 综合回答</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">散户说的话</div>
+    <div class="bubble">茅台最近涨了不少，现在基本面怎么样？还能不能继续看好？</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>fetch_quote(600519)</strong> — 拉取茅台最新日线行情，获取价格、涨跌幅、成交量</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>fetch_fundamental(600519)</strong> — 拉取最近一期财报：营收/净利同比、毛利率、ROE</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>search_analyst_notes</strong> — 检索知识库中茅台相关研判（按品种+最近30天过滤）</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>detect_conflicting_views(600519)</strong> — 检测多位分析师对茅台的观点是否冲突</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>综合输出</strong> — 整合行情+财报+研判，标注置信度+数据来源+分析师署名，若有冲突则提示用户</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">fetch_quote</span>
+    <span class="ctag ctag-teal">fetch_fundamental</span>
+    <span class="ctag ctag-teal">search_analyst_notes</span>
+    <span class="ctag ctag-teal">detect_conflicting_views</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">散户</span>一句话获得行情+基本面+分析师观点的综合解读，无需自己翻研报</div>
+    <div class="value-item"><span class="value-who">公司</span>替代助理 60% 的重复答疑工作，秒级响应提升续费率</div>
+  </div>
+</div>
+
+<!-- CASE 2 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">02</div>
+    <div>
+      <div class="case-title">分析师观点冲突 → 透明呈现</div>
+      <div class="case-sub">多位分析师意见分歧时，AI 不替用户做判断，而是透明呈现分歧</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">散户说的话</div>
+    <div class="bubble">比亚迪最近分析师怎么看？能跟着加仓吗？</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>search_analyst_notes(002594)</strong> — 检索比亚迪全部有效研判</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>detect_conflicting_views(002594)</strong> — 发现冲突：分析师 A 看好（bullish）vs 分析师 B 谨慎（cautious）</div></div>
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>fetch_quote(002594)</strong> — 补充当前行情作为背景信息</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>冲突呈现</strong> — 告知散户「分析师观点存在分歧」，分别呈现各方逻辑，标注"仅供参考"，不给加仓建议</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">search_analyst_notes</span>
+    <span class="ctag ctag-teal">detect_conflicting_views</span>
+    <span class="ctag ctag-coral">合规降级</span>
+    <span class="ctag ctag-amber">置信度:中</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">散户</span>不被单一观点误导，看到「分歧本身就是信息」，降低被割风险</div>
+    <div class="value-item"><span class="value-who">公司</span>合规零风险——AI 不给方向性建议，只做信息整合，规避监管红线</div>
+  </div>
+</div>
+
+<!-- CASE 3 -->
+<div class="case-card">
+  <div class="case-header">
+    <div class="case-num">03</div>
+    <div>
+      <div class="case-title">内容找回 → 精准定位分析师研报</div>
+      <div class="case-sub">散户记不清研报在哪 → Agent 检索知识库三维索引 → 找到原文</div>
+    </div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">散户说的话</div>
+    <div class="bubble">上周张分析师发的那篇关于新能源车的风险预警在哪？我翻不到了</div>
+  </div>
+  <div class="case-block">
+    <div class="case-block-label">Agent 执行链路</div>
+    <div class="flow-steps">
+      <div class="flow-step"><div class="flow-dot"></div><div class="flow-content"><strong>search_analyst_notes</strong> — 按标签「新能源车」+ 类型 risk_alert + 时间「上周」+ 分析师「张」检索</div></div>
+      <div class="flow-step flow-step-last"><div class="flow-dot flow-dot-end"></div><div class="flow-content"><strong>精准返回</strong> — 命中 1 条研判，展示标题+摘要+发布时间+置信度，高置信度直接呈现</div></div>
+    </div>
+  </div>
+  <div class="case-tags-row">
+    <span class="ctag ctag-teal">search_analyst_notes</span>
+    <span class="ctag ctag-purple">三维索引</span>
+    <span class="ctag ctag-blue">高置信度直答</span>
+  </div>
+  <div class="case-value">
+    <div class="value-item"><span class="value-who">散户</span>不用在群聊记录里大海捞针，一句话定位到具体研报</div>
+    <div class="value-item"><span class="value-who">公司</span>替代助理 20% 的「找历史内容」工作，释放人力做高价值服务</div>
+  </div>
+</div>
+
+</div><!-- end case-grid -->
+</div><!-- end tab-cases -->
+
+
+<!-- DETAIL PANEL -->
+<div class="overlay" id="overlay" onclick="closePanel(event)">
+  <div class="panel" id="panel">
+    <button class="panel-close" onclick="closePanel()">&#10005;</button>
+    <div class="panel-title" id="pTitle"></div>
+    <div class="panel-type" id="pType"></div>
+    <div class="panel-body" id="pBody"></div>
+    <div id="pExtra"></div>
+  </div>
+</div>
+
+<script>
+const D={
+  'l1-market':{title:'行情问答',type:'用户层 · L1',body:'散户问某只股票的价格、涨跌、成交量等实时行情问题。Agent 调用 fetch_quote 工具从 Tushare 拉取真实日线数据回答。这是最高频的使用场景。',tags:['实时行情','日线数据','Tushare']},
+  'l1-position':{title:'持仓分析',type:'用户层 · L1',body:'散户带着持仓上下文问「我该加仓还是减仓」「止损设在哪」。Agent 需要综合行情+研判+置信度回答，但绝对不给明确买卖建议（合规红线）。涉及交易类操作会强制转人工。',tags:['持仓上下文','合规高危','转人工兜底']},
+  'l1-research':{title:'研报解读',type:'用户层 · L1',body:'散户问「你们发的研报里写供给收缩，啥意思」。Agent 检索知识库找到原文，用通俗语言解释，附上分析师署名和数据源。',tags:['知识库检索','通俗解释','署名保留']},
+  'l1-retrieve':{title:'内容找回',type:'用户层 · L1',body:'散户记不清某篇研报在哪，用模糊描述（时间+分析师+主题）定位。Agent 利用知识库三维索引（品种 x 时间 x 类型）精准检索。',tags:['三维索引','模糊检索','历史内容']},
+  'l1-follow':{title:'跟单追踪',type:'用户层 · L1',body:'散户问「老师之前说看多新能源，现在还看多吗」。Agent 检索该分析师最新研判，对比历史观点，如果观点有变化会主动提示。若检测到冲突则透明呈现。',tags:['观点跟踪','历史对比','冲突检测']},
+  'l2-loop':{title:'Agent Loop 推理引擎',type:'应用层 · L2',body:'核心迭代循环：LLM 看 messages + tools → 返回 assistant message → 若有 tool_calls 则并发执行 → 追加 ToolMessage → 回到 LLM。最多 6 轮迭代，收敛后输出最终答案。借鉴 Dexter Agent 的 blocking + per-iteration 事件模式。',list:['AsyncGenerator 事件流','Promise.all 并发工具执行','max 6 iterations 安全上限','AbortSignal 支持用户取消']},
+  'l2-router':{title:'路由决策器',type:'应用层 · L2',body:'根据置信度评分将 Agent 输出分流到三个通道：高置信度（≥0.75）→ 直接给散户；中置信度（0.55~0.74）→ 转助理审核后给散户；低置信度（<0.55）→ 标"仅供参考"或转分析师本人处理。',list:['高置信度 → 直接回复（秒级）','中置信度 → 助理审核（分钟级）','低置信度 → 标仅供参考','合规高危 → 强制转人工']},
+  'l2-factcheck':{title:'事实校验',type:'应用层 · L2',body:'Agent 生成结论后，与知识库原文做相似度比对。相似度低于阈值的结论自动降级为"仅供参考"。涉及具体数字（价格、涨跌幅）必须引用数据源和时间戳。',list:['结论 vs 知识库相似度比对','低相似度 → 自动降级','数字必须引用数据源','时间戳必须标注']},
+  'l2-confidence':{title:'置信度评估',type:'应用层 · L2',body:'启发式评分机制：基础分 0.55 + 成功工具调用加分（每次 +0.08，上限 +0.24）+ 去重数据源加分（每个 +0.05，上限 +0.2）。工具失败率超 50% 则封顶 0.55。零工具调用直接 0.5。最终范围 [0.4, 0.95]。',list:['base: 0.55','tool_bonus: min(0.24, calls * 0.08)','source_bonus: min(0.2, sources * 0.05)','error_rate > 50% → cap at 0.55','no tools → 0.5']},
+  'l2-compliance':{title:'合规守卫',type:'应用层 · L2',body:'金融场景的合规红线检测。禁止给出明确买入/卖出建议、禁止预测具体价格目标、禁止使用绝对化表述（保证/稳赚/必涨）。涉及交易执行操作必须人工确认。System Prompt 层面内嵌约束 + 输出层面二次检查。',tags:['禁止买卖建议','禁止目标价','禁止绝对化','交易转人工']},
+  'l3-quote':{title:'fetch_quote',type:'平台层 · L3 · Agent Tool',body:'调用 Tushare Pro API 拉取 A 股最新日线行情。返回：最新价（分为单位）、涨跌额、涨跌幅、成交量（手）、交易日期。symbol 必须是 6 位数字代码。金额用整数（分）避免浮点精度问题。',list:['输入：symbol（6位股票代码）','输出：price_yuan / change_yuan / change_percent / volume_lots / trade_date','数据源标注：Tushare · 日线行情','限频：Tushare 接口有频率限制']},
+  'l3-fundamental':{title:'fetch_fundamental',type:'平台层 · L3 · Agent Tool',body:'调用 Tushare Pro API 拉取最近一期财务快照。返回：营收、净利润、毛利率、ROE、同比增速等。用于回答基本面相关问题。',list:['输入：symbol（6位股票代码）','输出：revenue / net_profit / gross_margin / roe / yoy%','数据源标注：Tushare · 财务快照','注意限频：调用前确认必要性']},
+  'l3-notes':{title:'search_analyst_notes',type:'平台层 · L3 · Agent Tool',body:'在分析师研判知识库上按三维索引（品种/时间/研判类型）检索。支持按 symbol、tag、note_type、start_date、end_date 组合过滤。自动排除已过期研判（validUntil < today）。这是产品核心工具——所有方向性回答都必须先查这里。',list:['三维索引：品种 x 时间 x 类型','5种研判类型：event_driven / valuation / trend / risk_alert / earnings_review','自动过滤已过期研判','返回：id / stance / title / body / analyst / confidence']},
+  'l3-conflict':{title:'detect_conflicting_views',type:'平台层 · L3 · Agent Tool',body:'对某只股票检测不同分析师观点是否冲突（bullish vs cautious）。当 search_analyst_notes 返回 ≥2 条研判时应调用此工具。若有冲突，必须在回答中告知散户，不能只呈现单一观点。',list:['输入：symbol（6位股票代码）','按 stance 分组统计','has_conflict: bullish + cautious 并存','返回各 stance 的分析师列表']},
+  'l3-reasoning':{title:'多步推理',type:'平台层 · L3 · 子流程',body:'Agent Loop 的核心推理流程。LLM 在每一轮迭代中分析已有信息，决定是否需要调用更多工具，直到信息充足可以给出最终答案。典型路径：先拉行情 → 再查研判 → 检查冲突 → 输出结论。'},
+  'l3-verify':{title:'结论校验',type:'平台层 · L3 · 子流程',body:'Agent 输出结论前的校验步骤。将 LLM 生成的结论与知识库原文做相似度比对，确保不存在无据断言。同时检查是否触犯合规红线（买卖建议/目标价/绝对化表述）。'},
+  'l3-escalate':{title:'人工兜底',type:'平台层 · L3 · 子流程',body:'当检测到合规高危内容（涉及交易执行、目标价预测）或置信度极低时，Agent 不输出结论，而是转交人工处理。这是最后一道安全阀，确保 AI 不越权。'},
+  'l4-nextjs':{title:'Next.js 16 App',type:'基座层 · L4',body:'前端基于 Next.js 16 + React 19 + Turbopack 构建。App Router 模式，支持 Server Components。API Routes 承载 Agent Loop 的 SSE 端点。Tailwind CSS 负责样式。',tags:['App Router','React 19','Turbopack','Tailwind CSS']},
+  'l4-openrouter':{title:'OpenRouter Gateway',type:'基座层 · L4',body:'通过 OpenRouter 统一调用各家 LLM。当前默认 DeepSeek Chat v3.1，支持通过环境变量 OPENROUTER_MODEL 切换模型。使用 OpenAI SDK 兼容协议。',tags:['OpenAI 兼容','模型可切换','环境变量配置']},
+  'l4-sse':{title:'SSE Event Stream',type:'基座层 · L4',body:'Agent Loop 通过 AsyncGenerator yield AgentEvent，API Route 将其转为 SSE 推送给前端。前端实时渲染推理轨迹（哪些工具被调用、返回了什么、当前在第几轮）。',tags:['AsyncGenerator','Server-Sent Events','实时轨迹']},
+  'l4-prompt':{title:'System Prompt',type:'基座层 · L4',body:'FIN_AI_SYSTEM_PROMPT 定义 Agent 角色和行为约束。包含：金融研究分析师身份、数据源使用规则、合规红线（禁止买卖建议/目标价/绝对化）、输出格式要求（结论+置信度+来源）、转人工触发条件。',tags:['角色定义','合规内嵌','输出格式','转人工规则']},
+  'l5-deepseek':{title:'DeepSeek Chat v3.1',type:'模型层 · L5',body:'当前主力模型。通过 OpenRouter 调用，Temperature 0.3 保证推理稳定性。max_tokens 1200 控制输出长度。支持 Function Calling 标准（OpenAI 兼容）。多步推理能力优秀，成本远低于 GPT-4。',tags:['deepseek/deepseek-chat-v3.1','T=0.3','1200 tokens','Function Calling']},
+  'l5-config':{title:'Agent Loop 参数',type:'模型层 · L5',body:'可配置的运行参数：max_iterations=6（安全上限，防止无限循环）、工具并发执行（Promise.all）、AbortSignal 支持中断、taskId 唯一标识每次推理。',list:['MAX_ITERATIONS: 6','并发工具执行: Promise.all','中断支持: AbortSignal','任务标识: taskId']},
+  'l6-tushare':{title:'Tushare Pro API',type:'数据层 · L6',body:'A 股真实市场数据来源。提供日线行情（最新价/涨跌/成交量）和财务快照（营收/净利/毛利率/ROE）。有频率限制。金额字段统一用整数（分），禁止浮点，确保精度。',tags:['日线行情','财务快照','整数金额（分）','限频']},
+  'l6-stock':{title:'股票列表',type:'数据层 · L6',body:'Demo 阶段预设 8 只 A 股标的，覆盖不同行业：贵州茅台(600519)、比亚迪(002594) 等。后续需补充现货品种 mock，体现「方法论标的中性」。',tags:['8只A股','多行业覆盖','待补现货']},
+  'l6-knowledge':{title:'分析师研判知识库',type:'数据层 · L6',body:'产品核心数据资产。每条研判包含：标的代码/名称、分析师署名/证书号、研判类型（5类）、观点方向（bullish/cautious/neutral）、正文、标签、置信度评分、创建时间、有效期。三维索引支持品种 x 时间 x 类型的组合检索。',list:['5种类型：事件驱动/估值修复/趋势跟踪/风险预警/财报点评','3种方向：bullish / cautious / neutral','有效期机制：过期研判自动排除','分析师署名：IP 保留设计']},
+  'l6-localstorage':{title:'localStorage',type:'数据层 · L6',body:'当前 Demo 阶段，知识库数据存储在浏览器 localStorage 中。前端通过请求体将 notesSnapshot 传给 server-side Agent Loop（因为 server 端无法读取 localStorage）。生产环境应迁移到数据库。'},
+  'l6-workspace':{title:'Workspace Store',type:'数据层 · L6',body:'前端工作区状态管理。存储组件布局配置、数据连接设置等。当前用 Zustand/localStorage 实现。支撑 /workspace 页面的自由拼装布局。'},
+};
+
+function show(id){
+  const d=D[id];if(!d)return;
+  document.getElementById('pTitle').textContent=d.title;
+  document.getElementById('pType').textContent=d.type;
+  document.getElementById('pBody').textContent=d.body;
+  const ex=document.getElementById('pExtra');ex.innerHTML='';
+  if(d.list){
+    const s=document.createElement('div');s.className='panel-section';
+    s.innerHTML='<div class="panel-section-title">关键细节</div>';
+    const ul=document.createElement('ul');ul.className='panel-list';
+    d.list.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.appendChild(li);});
+    s.appendChild(ul);ex.appendChild(s);
+  }
+  if(d.tags){
+    const s=document.createElement('div');s.className='panel-section';
+    s.innerHTML='<div class="panel-section-title">标签</div><div class="panel-tags"></div>';
+    const row=s.querySelector('.panel-tags');
+    d.tags.forEach(t=>{const sp=document.createElement('span');sp.className='panel-tag';sp.textContent=t;row.appendChild(sp);});
+    ex.appendChild(s);
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+function closePanel(e){if(!e||e.target===document.getElementById('overlay'))document.getElementById('overlay').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
+</script>
+</body>
+</html>

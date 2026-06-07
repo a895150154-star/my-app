@@ -1,0 +1,31 @@
+# ===== 密钥 / 敏感文件（绝不上传）=====
+.env
+.env.local
+**/.env
+**/.env.local
+!**/.env.example
+
+# ===== 依赖 / 缓存 / 构建产物 =====
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# ===== Python（如有）=====
+venv/
+**/venv/
+__pycache__/
+*.pyc
+
+# ===== 大文件 / 打包 =====
+*.zip
+*.bin
+
+# ===== 系统杂项 =====
+.DS_Store
+**/.DS_Store
+*.log
